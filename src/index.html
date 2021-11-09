@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html style="margin: 0; height: 100%;">
+  <head>
+    <script type="text/javascript">
+      // helper functions
+      function $get(id) {
+        return document.getElementById(id);
+      }
+
+      async function gqlFetch(query) {
+        const res = await fetch(window.location.href, {
+          method: "post",
+          headers: {
+            "Content-Type": "application/json",
+            "apollographql-client-name": "Apollo Explorer",
+            "apollographql-client-version": "CodeSandbox"
+          },
+          body: JSON.stringify({
+            query
+          })
+        }).then((res) => res.json());
+        return res;
+      }
+
+      function updateUI() {
+        const authToken = localStorage.getItem("plaid:token");
+        if (authToken) {
+          $get("login").innerHTML = "Logout";
+          $get("token").innerHTML = `Token: ${authToken.slice(0, 20)}...`;
+        } else {
+          $get("login").innerHTML = "Login";
+          $get("token").innerHTML = "";
+        }
+      }
+    </script>
+    <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+  </head>
+
+  <!-- HTML page body -->
+  <body style="margin: 0; display: flex; flex-direction: column; height: 100%;">
+    <section style="padding: 8px 16px;">
+      <button id="login">Login</button>
+      <span id="token" style="margin: 0 8px;"></span>
+    </section>
+
+    <div style="width: 100%; height: 100%;" id="embedded-explorer"></div>
+    <script src="https://embeddable-explorer.cdn.apollographql.com/_latest/embeddable-explorer.umd.production.min.js"></script>
+    <script>
+      new window.EmbeddedExplorer({
+        handleRequest: (endpointUrl, options) => {
+          return fetch(endpointUrl, {
+            ...options,
+            headers: {
+              ...options.headers,
+              authorization: localStorage.getItem("plaid:token")
+            }
+          });
+        },
+        target: "#embedded-explorer",
+        graphRef: "plaid-xxx@current",
+        endpointUrl: "https://u7uti.sse.codesandbox.io/",
+        persistExplorerState: false,
+        initialState: {
+          document: `query Transactions {
+  transactions {
+    amount
+    name
+  }
+}`,
+          variables: { Variable1: "ExampleValue" },
+          headers: { Header1: "ExampleValue" },
+          displayOptions: {
+            showHeadersAndEnvVars: false,
+            docsPanelState: "closed",
+            theme: "dark"
+          }
+        }
+      });
+    </script>
+  </body>
+
+  <script>
+    // login handler
+    $get("login").addEventListener("click", async () => {
+      const prevToken = localStorage.getItem("plaid:token");
+      if (prevToken) {
+        // handle logout
+        localStorage.removeItem("plaid:token");
+        updateUI();
+      } else {
+        // handle login
+        const linkToken = await gqlFetch(
+          "mutation GetLinkToken { getLinkToken { token expiration } }"
+        ).then(({ data }) => data.getLinkToken.token);
+
+        const handler = Plaid.create({
+          token: linkToken,
+          onSuccess: async (publicToken) => {
+            const authToken = await gqlFetch(
+              `mutation GetAccessToken { getAccessToken(publicToken: "${publicToken}") { success token } }`
+            ).then(({ data }) => data.getAccessToken.token);
+
+            if (authToken) localStorage.setItem("plaid:token", authToken);
+            updateUI();
+          },
+          onExit: async (err) => {
+            if (err != null) $get("token").innerHTML = err.error_code;
+          }
+        });
+        handler.open();
+      }
+    });
+
+    updateUI();
+  </script>
+</html>

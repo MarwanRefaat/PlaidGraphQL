@@ -1,0 +1,56 @@
+type Query {
+  transactions: [Transaction!]
+}
+
+type Transaction {
+  id: ID!
+  code: String
+  type: String
+  account: Account
+  name: String
+  merchantName: String
+  amount: Float!
+  date: String!
+  pending: Boolean
+  categoryId: String
+  accountOwner: String
+  paymentChannel: String
+  isoCurrencyCode: String
+  pendingTransactionId: ID
+  unofficialCurrencyCode: String
+  authorizedDate: String
+  category: [String]
+}
+
+type Balances {
+  available: Float
+  current: Float
+  isoCurrencyCode: String
+  limit: Float
+  unofficialCurrencyCode: String
+}
+
+type Account {
+  id: ID
+  mask: String
+  name: String
+  officialName: String
+  subtype: String
+  type: String
+  balances: Balances
+}
+
+type Mutation {
+  getLinkToken: LinkToken
+  getAccessToken(publicToken: String!): AccessToken
+}
+
+type LinkToken {
+  token: String!
+  expiration: String!
+}
+
+type AccessToken {
+  success: Boolean
+  token: String
+}
